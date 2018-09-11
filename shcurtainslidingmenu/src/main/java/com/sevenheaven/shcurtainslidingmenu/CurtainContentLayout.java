@@ -145,6 +145,8 @@ public class CurtainContentLayout extends FrameLayout {
                     vx = CurtainContentLayout.this.menu.getWidth();
                 }
 
+                Log.e("tag", "vx: " + vx + "  currentY: " + currentY);
+
                 curtainView.flip(vx, currentY);
             }
 
@@ -192,7 +194,7 @@ public class CurtainContentLayout extends FrameLayout {
     public CurtainContentLayout(Context context, AttributeSet attrs, int defStyle){
         super(context, attrs, defStyle);
 
-        defaultMenuWidth = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 200, getResources().getDisplayMetrics());
+        defaultMenuWidth = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 300, getResources().getDisplayMetrics());
 
         curtainView = new CurtainView(context);
         curtainView.setDirection(CurtainView.DIRECTION_LEFT);

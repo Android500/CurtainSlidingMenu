@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.PathMeasure;
+import android.graphics.Point;
 import android.graphics.Shader;
 import android.os.Build;
 import android.os.Handler;
@@ -13,6 +15,9 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.AccelerateInterpolator;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class CurtainView extends View {
 
@@ -57,6 +62,12 @@ public class CurtainView extends View {
 
     private float[] verts;
     private int[] colors;
+    float[] waveTops = {0, 0.03F, 0.08F, 0.15F, 0.24F, 0.36F, 0.49F, 0.64F, 0.81F, 1.0F};
+
+    private List<Point> points;
+    private PathMeasure pathMeasure;
+
+    private float progress;
 
     public CurtainView(Context context) {
         this(context, null);
@@ -79,8 +90,21 @@ public class CurtainView extends View {
 
         verts = new float[(bitmapWidth + 1) * (bitmapHeight + 1) * 2];
         colors = new int[(bitmapWidth + 1) * (bitmapHeight + 1)];
+        points = new ArrayList<>();
 
         setupMask();
+
+
+        Log.e("TAG", "bitmapwidth: " + bitmapWidth);
+        for (int i = 0; i < waveTops.length; i++) {
+            Point point = new Point();
+            point.x = (int) Math.floor((double) (bitmapWidth * (1 - progress) * waveTops[i]));
+            point.y = i % 2 != 0 ? 0 : (int) (60.0F * progress);
+            points.add(point);
+            //Log.e("TAG", "i: " + i + "point.y: " + point.y + "_____________point.x: " + point.x);
+        }
+
+        pathMeasure = BezierUtils.measurePath(points);
 
     }
 
@@ -181,9 +205,11 @@ public class CurtainView extends View {
 
         invalidate();
     }
-
+    float[] pos = new float[2];
     @Override
     public void onDraw(Canvas canvas) {
+
+
         if(this.bitmap != null){
             int index = 0;
 
@@ -193,17 +219,34 @@ public class CurtainView extends View {
             for (int y = 0; y <= bitmapHeight; y++) {
 
                 float fy = height / bitmapHeight * y;
+
+                float centerY = (gap + fy) / 2;
+
                 float longDisSide = touchY > height - touchY ? touchY : height - touchY;
                 float longRatio = Math.abs(fy - touchY) / longDisSide;
 
+
                 longRatio = interpolator.getInterpolation(longRatio);
 
-                float realWidth = longRatio * (touchX - delayOffsetX);
+                Log.e("tag", "longRatio: " + longRatio + "touchY: " + touchY);
+
+                float realWidth = longRatio * (touchX  - delayOffsetX);//
                 float xBlock = (float) width / (float) bitmapWidth;
+
+
+                for (int t = 0; t < waveTops.length; t++) {
+                    Point point = points.get(t);
+                    point.x = (int) Math.floor((double) ((width - realWidth)  * waveTops[t])) + (int)((width - realWidth) * ratio);
+                    point.y = t % 2 != 0 ? 0 : (int) (gap);
+                }
+
+                pathMeasure = BezierUtils.measurePath(points);
 
                 for (int x = 0; x <= bitmapWidth; x++) {
 
                     ratio = (touchX - realWidth) / (float) width;
+
+                    pathMeasure.getPosTan(pathMeasure.getLength() * x / (float) bitmapWidth, pos, null);
 
                     switch(direction){
                         case DIRECTION_LEFT:
@@ -213,12 +256,19 @@ public class CurtainView extends View {
                             verts[index * 2] =  x * xBlock * ratio;
                             break;
                     }
+                    Log.e("tag", "ratio: " + ratio);
 
                     float realHeight = height - ((float) Math.sin(x * 0.5F - Math.PI) * gap + gap);
 
                     float offsetY = realHeight / bitmapHeight * y;
 
-                    verts[index * 2 + 1] = (height - realHeight) / 2 + offsetY;
+                    //verts[index * 2 + 1] = pos[1] + fy;
+
+                    float scaleOffset = (centerY - fy) / centerY * pos[1];
+
+                    //y坐标改变，呈现正弦曲线
+                    verts[index * 2 + 1] = fy + scaleOffset;//
+
 
                     int color;
 
