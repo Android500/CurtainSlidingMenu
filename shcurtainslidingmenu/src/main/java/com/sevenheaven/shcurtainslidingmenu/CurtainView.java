@@ -30,8 +30,8 @@ public class CurtainView extends View {
     private int width, height;
     private int centerX, centerY;
 
-    private int bitmapWidth = 40;
-    private int bitmapHeight = 7;
+    private int bitmapWidth = 50;
+    private int bitmapHeight = 10;
 
     private int touchX;
     private int touchY;
@@ -54,7 +54,6 @@ public class CurtainView extends View {
         @Override
         public void run() {
             delayOffsetX += (touchX - delayOffsetX) * 0.3F;
-
             handler.postDelayed(this, 20);
             invalidate();
         }
@@ -68,6 +67,7 @@ public class CurtainView extends View {
     private PathMeasure pathMeasure;
 
     private float progress;
+    private int alpha = 0;
 
     public CurtainView(Context context) {
         this(context, null);
@@ -95,18 +95,13 @@ public class CurtainView extends View {
         setupMask();
 
 
-        Log.e("TAG", "bitmapwidth: " + bitmapWidth);
         for (int i = 0; i < waveTops.length; i++) {
             Point point = new Point();
-            point.x = (int) Math.floor((double) (bitmapWidth * (1 - progress) * waveTops[i]));
-            point.y = i % 2 != 0 ? 0 : (int) (60.0F * progress);
             points.add(point);
-            //Log.e("TAG", "i: " + i + "point.y: " + point.y + "_____________point.x: " + point.x);
         }
-
-        pathMeasure = BezierUtils.measurePath(points);
-
     }
+
+
 
     private void setupMask(){
         if (!newApiFlag && bitmap != null) {
@@ -134,11 +129,8 @@ public class CurtainView extends View {
             int[] colors = new int[blockPerWave];
             float[] offsets = new float[blockPerWave];
 
-
             float perOffset = 1.0F / blockPerWave;
-
             int halfWave = (int) Math.floor((float) blockPerWave / 2.0F);
-
             int perAlpha = maxAlpha / (halfWave - 1);
 
             for (int i = -halfWave; i < halfWave + 1; i++) {
@@ -184,12 +176,21 @@ public class CurtainView extends View {
 
         centerX = width / 2;
         centerY = height / 2;
+
+        Log.e("TAG", "bitmapwidth: " + bitmapWidth);
+        for (int i = 0; i < waveTops.length; i++) {
+            Point point = points.get(i);
+            point.x = (int) Math.floor((double) (width * waveTops[i]));
+            point.y = i % 2 != 0 ? 0 : (int) (60.0F * 0);
+            //Log.e("TAG", "i: " + i + "point.y: " + point.y + "_____________point.x: " + point.x);
+        }
+
+        pathMeasure = BezierUtils.measurePath(points);
     }
 
-    public void flip(int x, int y){
-        touchX = x;
-        touchY = y;
-
+    public void flip(int x1, int y1){
+        touchX = x1;
+        touchY = y1;
         invalidate();
     }
 
@@ -202,37 +203,28 @@ public class CurtainView extends View {
 
     public void setDirection(int direction){
         this.direction = direction;
-
         invalidate();
     }
+
     float[] pos = new float[2];
     @Override
     public void onDraw(Canvas canvas) {
-
-
         if(this.bitmap != null){
+            long currentTime = System.currentTimeMillis();
+
             int index = 0;
 
             float ratio = (float) touchX / (float) width;
             float gap = 60.0F * (direction == DIRECTION_LEFT ? ratio : (1 - ratio));
-            int alpha = 0;
             for (int y = 0; y <= bitmapHeight; y++) {
 
                 float fy = height / bitmapHeight * y;
-
-                float centerY = (gap + fy) / 2;
-
+                float centerY = (gap + height) / 2;
                 float longDisSide = touchY > height - touchY ? touchY : height - touchY;
                 float longRatio = Math.abs(fy - touchY) / longDisSide;
-
-
                 longRatio = interpolator.getInterpolation(longRatio);
-
-                Log.e("tag", "longRatio: " + longRatio + "touchY: " + touchY);
-
                 float realWidth = longRatio * (touchX  - delayOffsetX);//
                 float xBlock = (float) width / (float) bitmapWidth;
-
 
                 for (int t = 0; t < waveTops.length; t++) {
                     Point point = points.get(t);
@@ -241,13 +233,9 @@ public class CurtainView extends View {
                 }
 
                 pathMeasure = BezierUtils.measurePath(points);
-
                 for (int x = 0; x <= bitmapWidth; x++) {
-
                     ratio = (touchX - realWidth) / (float) width;
-
                     pathMeasure.getPosTan(pathMeasure.getLength() * x / (float) bitmapWidth, pos, null);
-
                     switch(direction){
                         case DIRECTION_LEFT:
                             verts[index * 2] = (bitmapWidth - x) * xBlock * ratio + (x * xBlock);
@@ -256,38 +244,29 @@ public class CurtainView extends View {
                             verts[index * 2] =  x * xBlock * ratio;
                             break;
                     }
-                    Log.e("tag", "ratio: " + ratio);
-
-                    float realHeight = height - ((float) Math.sin(x * 0.5F - Math.PI) * gap + gap);
-
-                    float offsetY = realHeight / bitmapHeight * y;
-
-                    //verts[index * 2 + 1] = pos[1] + fy;
 
                     float scaleOffset = (centerY - fy) / centerY * pos[1];
-
                     //y坐标改变，呈现正弦曲线
                     verts[index * 2 + 1] = fy + scaleOffset;//
 
-
                     int color;
-
-                    int channel = 255 - (int) (height - realHeight) * 2;
+                    int channel = 255 - (int)(pos[1] * 3);
                     if (channel < 255) {
                         alpha = (int) ((255 - channel) / 120.0F * maxAlpha) * 4;
                     }
                     if (newApiFlag) {
                         channel = channel < 0 ? 0 : channel;
                         channel = channel > 255 ? 255 : channel;
-
                         color = 0xFF000000 | channel << 16 | channel << 8 | channel;
-
                         colors[index] = color;
                     }
 
                     index += 1;
                 }
             }
+
+            Log.e("tag", "currentTime: " + (System.currentTimeMillis() - currentTime));
+
 
             canvas.drawBitmapMesh(bitmap, bitmapWidth, bitmapHeight, verts, 0, colors, 0, null);
             if (!newApiFlag) {
